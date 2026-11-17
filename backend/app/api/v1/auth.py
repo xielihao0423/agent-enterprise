@@ -14,7 +14,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 def login(req: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == req.username).first()
     if not user or not verify_password(req.password, user.hashed_password):
-        return error_response(*ErrorCode.UNAUTHORIZED, message="用户名或密码错误")
+        code, status = ErrorCode.UNAUTHORIZED
+        return error_response(code, "用户名或密码错误", status)
     token = create_access_token({"sub": str(user.id), "username": user.username})
     return success_response({"access_token": token, "token_type": "bearer"})
 
