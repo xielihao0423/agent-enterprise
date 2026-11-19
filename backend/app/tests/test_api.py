@@ -740,3 +740,296 @@ class TestAgentDuplicateWithConfig:
         data = config_resp.json()["data"]
         assert data["agent_scope_enabled"] is True
         assert data["write_strategy"] == "manual"
+
+
+# ==================== 联调部署（Integration）链路补充用例 ====================
+# 说明：以下用例覆盖本期「联调部署」需要复核的跨模块联调链路，
+# 仅断言 Spec（REQ-001~REQ-009）已明确的核心契约。
+
+
+class TestIntegrationAgentFullConfiguration:
+    """REQ-009 Gherkin：管理员完成 Agent 全链路配置并启用。"""
+
+    def test_full_configuration_flow_activates_agent(self, auth_headers):
+        """一次性贯通角色文件 / 模型 / Skill / 知识库 / 记忆 / 飞书机器人 配置链路。"""
+        agent_resp = client.post(
+            "/api/v1/agents",
+            json={"name": "联调全链路Agent", "description": "联调部署链路校验"},
+            headers=auth_headers,
+        )
+        assert agent_resp.status_code == 200
+        agent_id = agent_resp.json()["data"]["id"]
+
+        # 1) 四类角色文件均可保存
+        for ft in ["agent_md", "user_md", "identity_md", "soul_md"]:
+            resp = client.put(
+                f"/api/v1/agents/{agent_id}/role-files/{ft}",
+                json={"content": f"# {ft}\n联调配置内容"},
+                headers=auth_headers,
+            )
+            assert resp.status_code == 200
+            assert resp.json()["code"] == 0
+
+        # 2) 模型供应商 + Agent 默认模型绑定
+        prov_resp = client.post(
+            "/api/v1/model-providers",
+            json={
+                "provider_type": "ark",
+                "name": "联调供应商",
+                "api_key": "integration-key-abcdef",
+                "available_models": ["doubao-pro-32k"],
+            },
+            headers=auth_headers,
+        )
+        provider_id = prov_resp.json()["data"]["id"]
+        bind_resp = client.put(
+            f"/api/v1/model-providers/agents/{agent_id}/model",
+            json={
+                "provider_id": provider_id,
+                "model_name": "doubao-pro-32k",
+                "temperature": 0.5,
+                "max_tokens": 1024,
+                "top_p": 0.9,
+            },
+            headers=auth_headers,
+        )
+        assert bind_resp.json()["code"] == 0
+
+        # 3) Skill 安装并绑定
+        skill_resp = client.post(
+            "/api/v1/skills",
+            json={"name": "integration_web_search", "description": "联调Skill", "version": "1.0.0", "source": "builtin"},
+            headers=auth_headers,
+        )
+        skill_id = skill_resp.json()["data"]["id"]
+        bind_skill_resp = client.post(
+            f"/api/v1/agents/{agent_id}/skills",
+            json={"skill_id": skill_id},
+            headers=auth_headers,
+        )
+        assert bind_skill_resp.json()["code"] == 0
+
+        # 4) 知识库创建并绑定 Agent
+        kb_resp = client.post(
+            "/api/v1/knowledge-bases",
+            json={"name": "联调知识库", "description": "联调链路"},
+            headers=auth_headers,
+        )
+        kb_id = kb_resp.json()["data"]["id"]
+        bind_kb_resp = client.post(
+            f"/api/v1/agents/{agent_id}/knowledge-bases",
+            json={"kb_id": kb_id, "top_k": 5, "similarity_threshold": 0.8},
+            headers=auth_headers,
+        )
+        assert bind_kb_resp.json()["code"] == 0
+
+        # 5) 记忆配置
+        memory_resp = client.put(
+            f"/api/v1/agents/{agent_id}/memory-config",
+            json={"enabled": True, "agent_scope_enabled": True, "user_scope_enabled": True,
+                  "session_scope_enabled": False, "write_strategy": "auto"},
+            headers=auth_headers,
+        )
+        assert memory_resp.json()["code"] == 0
+
+        # 6) 飞书机器人创建并绑定
+        bot_resp = client.post(
+            "/api/v1/feishu-bots",
+            json={"name": "联调飞书Bot", "app_id": "cli_integration", "app_secret": "secret-integration-secret"},
+            headers=auth_headers,
+        )
+        bot_id = bot_resp.json()["data"]["id"]
+        bind_bot_resp = client.put(
+            f"/api/v1/feishu-bots/{bot_id}/agent",
+            json={"agent_id": agent_id},
+            headers=auth_headers,
+        )
+        assert bind_bot_resp.json()["code"] == 0
+
+        # 7) 启用 Agent（REQ-001.3 前置校验：已绑定模型）
+        status_resp = client.patch(
+            f"/api/v1/agents/{agent_id}/status",
+            json={"status": "active"},
+            headers=auth_headers,
+        )
+        assert status_resp.status_code == 200
+        assert status_resp.json()["code"] == 0
+        assert status_resp.json()["data"]["status"] == "active"
+
+        # 8) 配置结果在详情/列表中可读回
+        detail = client.get(f"/api/v1/agents/{agent_id}", headers=auth_headers).json()["data"]
+        assert detail["status"] == "active"
+
+
+class TestIntegrationChatChain:
+    """REQ-008 + REQ-009：前端对话链路（Agent → Session → 消息 → 历史）。"""
+
+    def test_chat_chain_create_session_send_and_history(self, auth_headers):
+        agent_id, _ = _create_agent_with_model(auth_headers, "联调对话Agent")
+        activate = client.patch(
+            f"/api/v1/agents/{agent_id}/status", json={"status": "active"}, headers=auth_headers
+        )
+        assert activate.json()["data"]["status"] == "active"
+
+        # 1) 仅 active Agent 出现在对话页可选的 Agent 列表
+        active_list = client.get("/api/v1/agents?status=active", headers=auth_headers).json()["data"]["items"]
+        assert any(a["id"] == agent_id for a in active_list)
+
+        # 2) 创建 Session（对话页默认 source=web, chat_type=single）
+        sess_resp = client.post(
+            f"/api/v1/agents/{agent_id}/sessions",
+            json={"source": "web", "chat_type": "single"},
+            headers=auth_headers,
+        )
+        assert sess_resp.json()["code"] == 0
+        session_id = sess_resp.json()["data"]["id"]
+        assert sess_resp.json()["data"]["status"] == "idle"
+
+        # 3) 发送文本消息并收到 Agent 回复
+        msg_resp = client.post(
+            f"/api/v1/sessions/{session_id}/messages",
+            json={"content": "联调链路你好"},
+            headers=auth_headers,
+        )
+        assert msg_resp.status_code == 200
+        assert msg_resp.json()["code"] == 0
+        assert msg_resp.json()["data"]["role"] == "assistant"
+
+        # 4) 历史消息包含用户消息与 Agent 回复，且 Session 回到 idle
+        history = client.get(f"/api/v1/sessions/{session_id}/messages", headers=auth_headers).json()["data"]
+        roles = [m["role"] for m in history["items"]]
+        assert roles.count("user") >= 1
+        assert roles.count("assistant") >= 1
+        detail = client.get(f"/api/v1/sessions/{session_id}", headers=auth_headers).json()["data"]
+        assert detail["status"] == "idle"
+
+    def test_chat_chain_sessions_are_isolated(self, auth_headers):
+        """REQ-008.1：同一 Agent 的多 Session 上下文隔离。"""
+        agent_id, _ = _create_agent_with_model(auth_headers, "联调隔离Agent")
+        client.patch(f"/api/v1/agents/{agent_id}/status", json={"status": "active"}, headers=auth_headers)
+
+        s1 = client.post(f"/api/v1/agents/{agent_id}/sessions", json={"source": "web"}, headers=auth_headers).json()["data"]["id"]
+        s2 = client.post(f"/api/v1/agents/{agent_id}/sessions", json={"source": "web"}, headers=auth_headers).json()["data"]["id"]
+        assert s1 != s2
+
+        client.post(f"/api/v1/sessions/{s1}/messages", json={"content": "只有在会话一出现的消息"}, headers=auth_headers)
+        h2 = client.get(f"/api/v1/sessions/{s2}/messages", headers=auth_headers).json()["data"]
+        assert h2["total"] == 0
+        contents = [m["content"] for m in h2["items"]]
+        assert "只有在会话一出现的消息" not in contents
+
+
+class TestIntegrationFeishuMapping:
+    """REQ-007.3/007.4/007.7：飞书单聊 / 群聊 Session 映射与未绑定机器人拒收。"""
+
+    def test_p2p_and_group_messages_map_to_distinct_sessions(self, auth_headers):
+        agent_id, _ = _create_agent_with_model(auth_headers, "联调飞书映射Agent")
+        client.patch(f"/api/v1/agents/{agent_id}/status", json={"status": "active"}, headers=auth_headers)
+
+        # 单聊：按用户维度映射
+        p2p = client.post(
+            f"/api/v1/agents/{agent_id}/sessions",
+            json={"source": "feishu", "chat_type": "single", "chat_id": "ou_p2p_integration"},
+            headers=auth_headers,
+        ).json()["data"]
+        # 群聊：按群维度映射（同一群不同成员复用同一 Session）
+        group = client.post(
+            f"/api/v1/agents/{agent_id}/sessions",
+            json={"source": "feishu", "chat_type": "group", "chat_id": "oc_group_integration"},
+            headers=auth_headers,
+        ).json()["data"]
+
+        assert p2p["id"] != group["id"]
+        # 创建响应不含 chat_type，类型与 chat_id 映射通过 Session 详情校验
+        p2p_detail = client.get(f"/api/v1/sessions/{p2p['id']}", headers=auth_headers).json()["data"]
+        group_detail = client.get(f"/api/v1/sessions/{group['id']}", headers=auth_headers).json()["data"]
+        assert p2p_detail["chat_type"] == "single"
+        assert p2p_detail["chat_id"] == "ou_p2p_integration"
+        assert group_detail["chat_type"] == "group"
+        assert group_detail["chat_id"] == "oc_group_integration"
+
+        # 两个映射 Session 的消息上下文互不串扰
+        client.post(f"/api/v1/sessions/{p2p['id']}/messages", json={"content": "单聊消息"}, headers=auth_headers)
+        client.post(f"/api/v1/sessions/{group['id']}/messages", json={"content": "群聊消息"}, headers=auth_headers)
+        p2p_contents = [m["content"] for m in client.get(
+            f"/api/v1/sessions/{p2p['id']}/messages", headers=auth_headers
+        ).json()["data"]["items"]]
+        group_contents = [m["content"] for m in client.get(
+            f"/api/v1/sessions/{group['id']}/messages", headers=auth_headers
+        ).json()["data"]["items"]]
+        assert "单聊消息" in p2p_contents and "群聊消息" not in p2p_contents
+        assert "群聊消息" in group_contents and "单聊消息" not in group_contents
+
+    def test_message_accepts_attachments(self, auth_headers):
+        """REQ-007.5 / REQ-008.5：文本 + 附件消息可入库并在历史中读回。"""
+        agent_id, _ = _create_agent_with_model(auth_headers, "联调附件Agent")
+        client.patch(f"/api/v1/agents/{agent_id}/status", json={"status": "active"}, headers=auth_headers)
+        session_id = client.post(
+            f"/api/v1/agents/{agent_id}/sessions", json={"source": "feishu"}, headers=auth_headers
+        ).json()["data"]["id"]
+
+        attachments = [{"name": "ticket.pdf", "size": 1024, "url": "https://example.com/ticket.pdf"}]
+        resp = client.post(
+            f"/api/v1/sessions/{session_id}/messages",
+            json={"content": "这是附件消息", "attachments": attachments},
+            headers=auth_headers,
+        )
+        assert resp.json()["code"] == 0
+
+        items = client.get(f"/api/v1/sessions/{session_id}/messages", headers=auth_headers).json()["data"]["items"]
+        user_msgs = [m for m in items if m["role"] == "user"]
+        assert user_msgs and user_msgs[0]["attachments"] == attachments
+
+    def test_unbound_bot_does_not_expose_agent(self, auth_headers):
+        """REQ-007.7：未绑定 Agent 的机器人不产生可用会话映射。"""
+        bot_resp = client.post(
+            "/api/v1/feishu-bots",
+            json={"name": "联调未绑定Bot", "app_id": "cli_unbound", "app_secret": "secret-unbound-123"},
+            headers=auth_headers,
+        )
+        bot_id = bot_resp.json()["data"]["id"]
+        bots = client.get("/api/v1/feishu-bots", headers=auth_headers).json()["data"]
+        target = next(b for b in bots if b["id"] == bot_id)
+        assert target["agent_id"] in (None, 0)
+
+
+class TestIntegrationSecurityRegression:
+    """REQ-003.2 / REQ-007.1 / REQ-009.6：凭据脱敏与鉴权回归。"""
+
+    def test_credentials_masked_in_list(self, auth_headers):
+        prov = client.post(
+            "/api/v1/model-providers",
+            json={"provider_type": "openai", "name": "联调OpenAI", "api_key": "sk-integration-1234",
+                  "available_models": ["gpt-4o-mini"]},
+            headers=auth_headers,
+        )
+        assert prov.json()["code"] == 0
+        raw = client.get("/api/v1/model-providers", headers=auth_headers)
+        text = raw.text
+        assert "sk-integration-1234" not in text
+        assert "****1234" in text
+
+        client.post(
+            "/api/v1/feishu-bots",
+            json={"name": "联调脱敏Bot", "app_id": "cli_mask", "app_secret": "feishu-secret-9876"},
+            headers=auth_headers,
+        )
+        bot_text = client.get("/api/v1/feishu-bots", headers=auth_headers).text
+        assert "feishu-secret-9876" not in bot_text
+        assert "****9876" in bot_text
+
+    def test_protected_endpoints_require_token(self):
+        for method, path in [
+            ("get", "/api/v1/agents"),
+            ("get", "/api/v1/model-providers"),
+            ("get", "/api/v1/skills"),
+            ("get", "/api/v1/knowledge-bases"),
+            ("get", "/api/v1/feishu-bots"),
+            ("get", "/api/v1/audit-logs"),
+        ]:
+            resp = getattr(client, method)(path)
+            assert resp.status_code == 401, f"{method.upper()} {path} 未返回 401"
+
+    def test_health_check_is_public(self):
+        resp = client.get("/health")
+        assert resp.json() == {"code": 0, "message": "success", "data": {"status": "healthy"}}
