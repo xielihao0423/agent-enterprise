@@ -1,0 +1,13 @@
+
+> agent-enterprise-frontend@1.0.0 build
+> tsc -b && vite build
+
+vite v5.4.21 building for production...
+transforming...
+✓ 1587 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.40 kB │ gzip:  0.32 kB
+dist/assets/index-DFxRL9Lv.css   21.39 kB │ gzip:  4.69 kB
+dist/assets/index-BDEtHmZ_.js   286.14 kB │ gzip: 88.62 kB
+✓ built in 2.34s

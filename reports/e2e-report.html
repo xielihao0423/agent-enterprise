@@ -1,0 +1,118 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>代码合并 · 真实运行时集成测试报告</title>
+<style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;margin:24px;color:#1f2937}h1{font-size:20px}.sum{display:flex;gap:14px;margin:16px 0}.card{border:1px solid #e5e7eb;border-radius:8px;padding:12px 18px;min-width:110px}.num{font-size:22px;font-weight:700}.pass .num,.pass td:nth-child(2){color:#15803d}table{border-collapse:collapse;width:100%;font-size:12px}th,td{border-bottom:1px solid #e5e7eb;padding:5px 8px;text-align:left}th{background:#f9fafb}tr.grp td{background:#f3f4f6}pre{white-space:pre-wrap;font-size:11px}.meta{color:#6b7280;font-size:12px}code{background:#f3f4f6;padding:1px 4px;border-radius:3px}</style></head><body>
+<h1>企业级 Agent 平台 · 代码合并节点测试报告（真实运行时接入修复）</h1>
+<p class="meta">分支：<code>feat/12837f3c-rpcf</code>｜核心改动：移除模拟回复，接入 veadk-python <code>Agent</code>/<code>Runner</code> 真实执行｜执行命令：<code>cd backend &amp;&amp; pytest app/tests/test_api.py -v --durations=5</code>｜前端构建：<code>cd frontend &amp;&amp; npm run build</code>（EXIT 0）｜日志：<a href="pytest-backend.log">pytest-backend.log</a> / <a href="frontend-build.log">frontend-build.log</a>｜2026-11-24 13:46 (UTC)</p>
+<div class="sum"><div class="card"><div class="num">67</div><div>用例总数</div></div><div class="card pass"><div class="num">67</div><div>PASSED</div></div><div class="card pass"><div class="num">0</div><div>FAILED</div></div><div class="card pass"><div class="num">0</div><div>前端构建错误</div></div></div>
+<h3>本轮修复要点</h3>
+<ul>
+<li>问题：对话返回硬编码文案「...这是一个模拟回复。在实际部署中，将调用 veadk-python Runner...」，并未真正执行 Agent。</li>
+<li>修复：新增 <code>backend/app/services/agent_runtime.py</code>，用 veadk-python 的 <code>Agent</code>+<code>Runner</code> 执行对话：从四类角色文件拼接 instruction、解密模型凭据、按 Agent 绑定模型构建运行时（provider/model 单前缀，LiteLLM model = <code>openai/doubao-pro-32k</code>）。</li>
+<li>修复：<code>sessions.py</code> 的 <code>send_message</code>/<code>resume_session</code> 改为调用真实运行时；运行时不可用/未绑定模型/凭据无效时返回明确错误（<code>code=2001 MODEL_ERROR</code>），绝不返回模拟回复。</li>
+<li>修复：前端 <code>Chat.tsx</code> 展示后端返回的真实错误气泡（红色），不再静默吞掉失败；请求超时提升至 120s。</li>
+<li>新增 3 个运行时用例：instruction/model 构建（含 provider 前缀去重）、缺失模型报错、运行时失败时 API 返回真实错误且无 mock 消息。</li>
+<li>端到端验证：无效 API Key 触发真实 veadk→LiteLLM 调用，返回 <code>code=2001</code> 真实错误，<code>HAS_MOCK=False</code>。</li>
+</ul>
+<h3>用例明细</h3>
+<table><thead><tr><th style="width:78%">用例</th><th style="width:12%">状态</th><th>耗时</th></tr></thead><tbody>
+<tr class='grp'><td colspan='3'><b>TestAuth</b></td></tr>
+<tr class='pass'><td>TestAuth::test_login_success</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestAuth::test_login_wrong_password</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestAuth::test_unauthorized_access</td><td>PASSED</td><td>-</td></tr>
+<tr class='grp'><td colspan='3'><b>TestAgentCRUD</b></td></tr>
+<tr class='pass'><td>TestAgentCRUD::test_create_agent</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestAgentCRUD::test_list_agents</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestAgentCRUD::test_get_agent</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestAgentCRUD::test_update_agent</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestAgentCRUD::test_delete_agent</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestAgentCRUD::test_duplicate_agent</td><td>PASSED</td><td>-</td></tr>
+<tr class='grp'><td colspan='3'><b>TestAgentStatusTransitions</b></td></tr>
+<tr class='pass'><td>TestAgentStatusTransitions::test_activate_without_model_fails</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestAgentStatusTransitions::test_draft_to_active_to_inactive_to_active</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestAgentStatusTransitions::test_delete_active_agent_with_sessions_fails</td><td>PASSED</td><td>-</td></tr>
+<tr class='grp'><td colspan='3'><b>TestAgentSearch</b></td></tr>
+<tr class='pass'><td>TestAgentSearch::test_search_by_name</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestAgentSearch::test_filter_by_status</td><td>PASSED</td><td>-</td></tr>
+<tr class='grp'><td colspan='3'><b>TestRoleFiles</b></td></tr>
+<tr class='pass'><td>TestRoleFiles::test_get_role_files</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestRoleFiles::test_update_role_file</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestRoleFiles::test_role_file_versions</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestRoleFiles::test_restore_role_file_version</td><td>PASSED</td><td>-</td></tr>
+<tr class='grp'><td colspan='3'><b>TestModelProvider</b></td></tr>
+<tr class='pass'><td>TestModelProvider::test_create_provider</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestModelProvider::test_list_providers</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestModelProvider::test_test_provider</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestModelProvider::test_bind_agent_model_with_inference_params</td><td>PASSED</td><td>-</td></tr>
+<tr class='grp'><td colspan='3'><b>TestSkill</b></td></tr>
+<tr class='pass'><td>TestSkill::test_install_and_bind</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestSkill::test_unbind_skill</td><td>PASSED</td><td>-</td></tr>
+<tr class='grp'><td colspan='3'><b>TestKnowledgeBase</b></td></tr>
+<tr class='pass'><td>TestKnowledgeBase::test_create_kb</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestKnowledgeBase::test_list_kbs</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestKnowledgeBase::test_upload_document</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestKnowledgeBase::test_list_documents</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestKnowledgeBase::test_bind_kb_to_agent</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestKnowledgeBase::test_unbind_kb_from_agent</td><td>PASSED</td><td>-</td></tr>
+<tr class='grp'><td colspan='3'><b>TestMemory</b></td></tr>
+<tr class='pass'><td>TestMemory::test_get_default_memory_config</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestMemory::test_update_memory_config</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestMemory::test_list_and_delete_memories</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestMemory::test_batch_delete_memories</td><td>PASSED</td><td>-</td></tr>
+<tr class='grp'><td colspan='3'><b>TestFeishuBot</b></td></tr>
+<tr class='pass'><td>TestFeishuBot::test_create_bot</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestFeishuBot::test_list_bots_and_credential_masking</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestFeishuBot::test_bind_bot_to_agent</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestFeishuBot::test_get_bot_status</td><td>PASSED</td><td>-</td></tr>
+<tr class='grp'><td colspan='3'><b>TestSession</b></td></tr>
+<tr class='pass'><td>TestSession::test_create_and_message</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestSession::test_create_session_inactive_agent_fails</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestSession::test_list_sessions</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestSession::test_get_session_detail</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestSession::test_message_history</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestSession::test_interrupt_and_resume</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestSession::test_close_session</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestSession::test_get_traces</td><td>PASSED</td><td>-</td></tr>
+<tr class='grp'><td colspan='3'><b>TestAuditAndMetrics</b></td></tr>
+<tr class='pass'><td>TestAuditAndMetrics::test_list_audit_logs</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestAuditAndMetrics::test_token_usage_metrics</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestAuditAndMetrics::test_error_metrics</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestAuditAndMetrics::test_health_check</td><td>PASSED</td><td>-</td></tr>
+<tr class='grp'><td colspan='3'><b>TestAgentDuplicateWithConfig</b></td></tr>
+<tr class='pass'><td>TestAgentDuplicateWithConfig::test_duplicate_copies_model_binding</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestAgentDuplicateWithConfig::test_duplicate_copies_role_files</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestAgentDuplicateWithConfig::test_duplicate_copies_skill_binding</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestAgentDuplicateWithConfig::test_duplicate_copies_kb_binding</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestAgentDuplicateWithConfig::test_duplicate_copies_memory_config</td><td>PASSED</td><td>-</td></tr>
+<tr class='grp'><td colspan='3'><b>TestIntegrationAgentFullConfiguration</b></td></tr>
+<tr class='pass'><td>TestIntegrationAgentFullConfiguration::test_full_configuration_flow_activates_agent</td><td>PASSED</td><td>-</td></tr>
+<tr class='grp'><td colspan='3'><b>TestIntegrationChatChain</b></td></tr>
+<tr class='pass'><td>TestIntegrationChatChain::test_chat_chain_create_session_send_and_history</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestIntegrationChatChain::test_chat_chain_sessions_are_isolated</td><td>PASSED</td><td>-</td></tr>
+<tr class='grp'><td colspan='3'><b>TestIntegrationFeishuMapping</b></td></tr>
+<tr class='pass'><td>TestIntegrationFeishuMapping::test_p2p_and_group_messages_map_to_distinct_sessions</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestIntegrationFeishuMapping::test_message_accepts_attachments</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestIntegrationFeishuMapping::test_unbound_bot_does_not_expose_agent</td><td>PASSED</td><td>-</td></tr>
+<tr class='grp'><td colspan='3'><b>TestAgentRuntimeIntegration</b></td></tr>
+<tr class='pass'><td>TestAgentRuntimeIntegration::test_runtime_adapter_builds_from_role_files_and_model</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestAgentRuntimeIntegration::test_runtime_missing_model_binding_raises</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestAgentRuntimeIntegration::test_send_message_surfaces_runtime_error_not_mock</td><td>PASSED</td><td>-</td></tr>
+<tr class='grp'><td colspan='3'><b>TestIntegrationSecurityRegression</b></td></tr>
+<tr class='pass'><td>TestIntegrationSecurityRegression::test_credentials_masked_in_list</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestIntegrationSecurityRegression::test_protected_endpoints_require_token</td><td>PASSED</td><td>-</td></tr>
+<tr class='pass'><td>TestIntegrationSecurityRegression::test_health_check_is_public</td><td>PASSED</td><td>-</td></tr>
+</tbody></table>
+<h3>前端构建输出（tail）</h3><pre>
+
+> agent-enterprise-frontend@1.0.0 build
+> tsc -b && vite build
+
+vite v5.4.21 building for production...
+transforming...
+✓ 1587 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.40 kB │ gzip:  0.32 kB
+dist/assets/index-DFxRL9Lv.css   21.39 kB │ gzip:  4.69 kB
+dist/assets/index-BDEtHmZ_.js   286.14 kB │ gzip: 88.62 kB
+✓ built in 2.34s
+
+</pre></body></html>
