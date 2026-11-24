@@ -1,4 +1,3 @@
-import time
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
@@ -8,6 +7,7 @@ from app.models.user import User
 from app.models.session import Session as SessionModel, Message
 from app.models.agent import Agent
 from app.schemas.session import *
+from app.services import agent_runtime
 
 router = APIRouter(tags=["sessions"])
 
@@ -86,15 +86,42 @@ def send_message(session_id: int, req: MessageCreate, db: Session = Depends(get_
         return error_response(*ErrorCode.NOT_FOUND, message="Session 不存在")
     if s.status == "closed":
         return error_response(*ErrorCode.STATE_CONFLICT, message="Session 已关闭")
-    # Save user message
+    agent = db.query(Agent).filter(Agent.id == s.agent_id).first()
+    if not agent:
+        return error_response(*ErrorCode.NOT_FOUND, message="Agent 不存在")
+
+    # Save user message first so it is never lost, then execute the real runtime.
     user_msg = Message(session_id=session_id, role="user", content=req.content, attachments=req.attachments)
     db.add(user_msg)
     s.status = "running"
     db.commit()
-    # Simulate agent response (in production, would call veadk-python Runner)
-    time.sleep(0.1)
-    agent_reply = f"已收到您的消息：{req.content}。这是一个模拟回复。在实际部署中，将调用 veadk-python Runner 进行 Agent 执行。"
-    assistant_msg = Message(session_id=session_id, role="assistant", content=agent_reply, token_usage=len(agent_reply) // 4)
+
+    # Load prior context (exclude the just-saved user message; it is passed explicitly).
+    history = [
+        {"role": m.role, "content": m.content}
+        for m in db.query(Message)
+        .filter(Message.session_id == session_id, Message.id != user_msg.id)
+        .order_by(Message.created_at.asc())
+        .all()
+        if m.role in ("user", "assistant")
+    ]
+
+    try:
+        result = agent_runtime.run_agent(db, agent, s, req.content, history=history)
+    except agent_runtime.AgentRuntimeError as exc:
+        # Execution failed: record the error, reset session state, surface a real error.
+        s.status = "idle"
+        db.commit()
+        return error_response(*ErrorCode.MODEL_ERROR, message=str(exc))
+    except Exception as exc:  # noqa: BLE001
+        s.status = "idle"
+        db.commit()
+        return error_response(*ErrorCode.MODEL_ERROR, message=f"Agent 执行异常: {exc}")
+
+    assistant_msg = Message(
+        session_id=session_id, role="assistant",
+        content=result.content, token_usage=result.token_usage, tool_calls=result.tool_calls
+    )
     db.add(assistant_msg)
     s.status = "idle"
     db.commit()
@@ -102,6 +129,7 @@ def send_message(session_id: int, req: MessageCreate, db: Session = Depends(get_
     return success_response({
         "id": assistant_msg.id, "session_id": session_id, "role": "assistant",
         "content": assistant_msg.content, "token_usage": assistant_msg.token_usage,
+        "tool_calls": assistant_msg.tool_calls,
         "created_at": assistant_msg.created_at.isoformat() if assistant_msg.created_at else None
     })
 
@@ -125,10 +153,8 @@ def resume_session(session_id: int, db: Session = Depends(get_db), user: User = 
         return error_response(*ErrorCode.NOT_FOUND, message="Session 不存在")
     if s.status != "interrupted":
         return error_response(*ErrorCode.STATE_CONFLICT, message="Session 当前状态不支持续跑")
-    s.status = "running"
-    db.commit()
-    # Simulate completion
-    time.sleep(0.1)
+    # Resuming simply re-opens the session for further messages; execution
+    # happens on the next send_message call through the real runtime.
     s.status = "idle"
     db.commit()
     return success_response({"id": s.id, "status": s.status})

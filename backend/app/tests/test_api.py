@@ -46,6 +46,27 @@ def setup_db():
     Base.metadata.drop_all(bind=engine)
 
 
+@pytest.fixture(autouse=True)
+def stub_agent_runtime(monkeypatch):
+    """Route message execution through a deterministic fake veadk runtime.
+
+    The platform now executes chat via ``agent_runtime.run_agent`` (veadk-python).
+    Tests must not call a live model, so we replace the runtime execution boundary
+    with a deterministic stub that echoes the user message. This keeps the
+    persistence/assertion behaviour realistic while proving the API routes through
+    the runtime adapter rather than a hardcoded reply.
+    """
+    from app.services import agent_runtime
+
+    def fake_run_agent(db, agent, session, user_message, history=None):
+        return agent_runtime.RuntimeResult(
+            content=f"[runtime] {user_message}", token_usage=max(1, len(user_message) // 4)
+        )
+
+    monkeypatch.setattr(agent_runtime, "run_agent", fake_run_agent)
+    yield
+
+
 @pytest.fixture(scope="module")
 def auth_headers():
     """Login and return auth headers."""
@@ -534,8 +555,27 @@ class TestFeishuBot:
 # ==================== REQ-008: Session & Conversation ====================
 
 class TestSession:
-    def test_create_and_message(self, auth_headers):
-        """REQ-008.1/8.5: Create session, send message, get agent reply."""
+    def test_create_and_message(self, auth_headers, monkeypatch):
+        """REQ-008.1/8.5: Send message executes the real runtime (veadk), not a mock reply.
+
+        We stub the veadk execution boundary (``agent_runtime.run_agent``) so the
+        test does not require a live model. The assertion verifies the API actually
+        routes through the runtime adapter and persists its output verbatim.
+        """
+        from app.services import agent_runtime
+
+        captured = {}
+
+        def fake_run_agent(db, agent, session, user_message, history=None):
+            captured["user_message"] = user_message
+            captured["agent_id"] = agent.id
+            captured["history_len"] = len(history or [])
+            return agent_runtime.RuntimeResult(
+                content=f"真实运行时回复：{user_message}", token_usage=8
+            )
+
+        monkeypatch.setattr(agent_runtime, "run_agent", fake_run_agent)
+
         agent_id, _ = _create_agent_with_model(auth_headers, "会话测试Agent")
         client.patch(f"/api/v1/agents/{agent_id}/status", json={"status": "active"}, headers=auth_headers)
         sess_resp = client.post(f"/api/v1/agents/{agent_id}/sessions", json={"source": "web"}, headers=auth_headers)
@@ -544,7 +584,12 @@ class TestSession:
         msg_resp = client.post(f"/api/v1/sessions/{session_id}/messages", json={"content": "你好"}, headers=auth_headers)
         assert msg_resp.status_code == 200
         assert msg_resp.json()["data"]["role"] == "assistant"
-        assert "你好" in msg_resp.json()["data"]["content"]
+        # The runtime adapter received the user message...
+        assert captured["user_message"] == "你好"
+        assert captured["agent_id"] == agent_id
+        # ...and its output was persisted verbatim (no hardcoded mock text).
+        assert msg_resp.json()["data"]["content"] == "真实运行时回复：你好"
+        assert "模拟回复" not in msg_resp.json()["data"]["content"]
 
     def test_create_session_inactive_agent_fails(self, auth_headers):
         """REQ-008: Cannot create session on non-active agent."""
@@ -991,6 +1036,91 @@ class TestIntegrationFeishuMapping:
         bots = client.get("/api/v1/feishu-bots", headers=auth_headers).json()["data"]
         target = next(b for b in bots if b["id"] == bot_id)
         assert target["agent_id"] in (None, 0)
+
+
+class TestAgentRuntimeIntegration:
+    """REQ-008：消息执行必须走真实运行时（veadk-python），不得返回硬编码模拟回复。"""
+
+    def test_runtime_adapter_builds_from_role_files_and_model(self):
+        """unit: agent_runtime composes instruction from role files and resolves model config."""
+        from app.services import agent_runtime
+        from app.models.agent import Agent as AgentModel, RoleFile
+        from app.models.model_provider import ModelProvider, AgentModelBinding
+        from app.core.security import encrypt_credential
+
+        db = SessionLocal()
+        try:
+            agent = AgentModel(name="runtime_unit", description="unit test agent", status="active")
+            db.add(agent)
+            db.flush()
+            db.add(RoleFile(agent_id=agent.id, file_type="identity_md",
+                            content="你是客服助手", version=1, is_current=True))
+            db.add(RoleFile(agent_id=agent.id, file_type="soul_md",
+                            content="语气温和", version=1, is_current=True))
+            prov = ModelProvider(provider_type="ark", name="ark",
+                                 api_key_encrypted=encrypt_credential("sk-test-key"),
+                                 base_url=None, available_models="doubao")
+            db.add(prov)
+            db.flush()
+            db.add(AgentModelBinding(agent_id=agent.id, provider_id=prov.id,
+                                     model_name="doubao-pro-32k", temperature=0.5))
+            db.commit()
+
+            instruction = agent_runtime._build_instruction(db, agent)
+            assert "你是客服助手" in instruction
+            assert "语气温和" in instruction
+            assert "IDENTITY" in instruction and "SOUL" in instruction
+
+            cfg = agent_runtime._resolve_model_config(db, agent)
+            assert cfg["model_name"] == "doubao-pro-32k"  # bare name, no provider prefix
+            assert cfg["model_provider"] == "openai"       # ARK is OpenAI-compatible
+            assert cfg["model_api_key"] == "sk-test-key"
+            assert cfg["model_api_base"]  # defaults to ARK base url
+        finally:
+            db.close()
+
+    def test_runtime_missing_model_binding_raises(self):
+        """unit: an active agent without a model binding raises AgentRuntimeError."""
+        from app.services import agent_runtime
+        from app.models.agent import Agent as AgentModel
+
+        db = SessionLocal()
+        try:
+            agent = AgentModel(name="no_model_agent", status="active")
+            db.add(agent)
+            db.commit()
+            import pytest as _pytest
+            with _pytest.raises(agent_runtime.AgentRuntimeError):
+                agent_runtime._resolve_model_config(db, agent)
+        finally:
+            db.close()
+
+    def test_send_message_surfaces_runtime_error_not_mock(self, auth_headers, monkeypatch):
+        """integration: when the runtime fails, the API returns a real error (no mock reply)."""
+        from app.services import agent_runtime
+
+        def boom(*args, **kwargs):
+            raise agent_runtime.AgentRuntimeError("veadk-python 运行时未安装，无法执行 Agent。")
+
+        # Override the module-level stub for this test only.
+        monkeypatch.setattr(agent_runtime, "run_agent", boom)
+
+        agent_id, _ = _create_agent_with_model(auth_headers, "运行时失败Agent")
+        client.patch(f"/api/v1/agents/{agent_id}/status", json={"status": "active"}, headers=auth_headers)
+        session_id = client.post(f"/api/v1/agents/{agent_id}/sessions", json={"source": "web"},
+                                 headers=auth_headers).json()["data"]["id"]
+        resp = client.post(f"/api/v1/sessions/{session_id}/messages",
+                           json={"content": "触发错误"}, headers=auth_headers)
+        # Runtime failure -> explicit error, never a fabricated assistant message.
+        assert resp.status_code == 500
+        assert resp.json()["code"] != 0
+        assert "模拟回复" not in resp.text
+        # Only the user message is persisted; no assistant mock message.
+        msgs = client.get(f"/api/v1/sessions/{session_id}/messages", headers=auth_headers).json()["data"]["items"]
+        assert all(m["role"] != "assistant" for m in msgs)
+        # Session returned to idle (not stuck running).
+        detail = client.get(f"/api/v1/sessions/{session_id}", headers=auth_headers).json()["data"]
+        assert detail["status"] == "idle"
 
 
 class TestIntegrationSecurityRegression:

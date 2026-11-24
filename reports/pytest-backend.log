@@ -1,152 +1,131 @@
+The event loop scope for asynchronous fixtures will default to the fixture scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to "function" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session". Set it to "fixture-scope" to keep the current behavior.
 ============================= test session starts ==============================
-platform linux -- Python 3.10.12, pytest-9.2.0, pluggy-1.7.0 -- /usr/bin/python3
+platform linux -- Python 3.12.11, pytest-9.2.0, pluggy-1.7.0 -- /tmp/agentvenv/bin/python
 cachedir: .pytest_cache
-rootdir: /home/gem/.agentnative/sessions/agent-session-yezt9p2qkg211wb0rshd/repos/xielihao0423_agent-enterprise/backend
-plugins: asyncio-1.5.0, anyio-4.12.1
-asyncio: mode=strict, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
-collecting ... collected 64 items
-
+rootdir: /home/gem/.agentnative/sessions/agent-session-yf07bzpzpctqjb4m997n/repos/xielihao0423_agent-enterprise/backend
+plugins: asyncio-1.5.0, anyio-4.16.0, platformdirs-4.14.8
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 67 items
 app/tests/test_api.py::TestAuth::test_login_success PASSED               [  1%]
-app/tests/test_api.py::TestAuth::test_login_wrong_password PASSED        [  3%]
+app/tests/test_api.py::TestAuth::test_login_wrong_password PASSED        [  2%]
 app/tests/test_api.py::TestAuth::test_unauthorized_access PASSED         [  4%]
-app/tests/test_api.py::TestAgentCRUD::test_create_agent PASSED           [  6%]
+app/tests/test_api.py::TestAgentCRUD::test_create_agent PASSED           [  5%]
 app/tests/test_api.py::TestAgentCRUD::test_list_agents PASSED            [  7%]
-app/tests/test_api.py::TestAgentCRUD::test_get_agent PASSED              [  9%]
+app/tests/test_api.py::TestAgentCRUD::test_get_agent PASSED              [  8%]
 app/tests/test_api.py::TestAgentCRUD::test_update_agent PASSED           [ 10%]
-app/tests/test_api.py::TestAgentCRUD::test_delete_agent PASSED           [ 12%]
-app/tests/test_api.py::TestAgentCRUD::test_duplicate_agent PASSED        [ 14%]
-app/tests/test_api.py::TestAgentStatusTransitions::test_activate_without_model_fails PASSED [ 15%]
-app/tests/test_api.py::TestAgentStatusTransitions::test_draft_to_active_to_inactive_to_active PASSED [ 17%]
-app/tests/test_api.py::TestAgentStatusTransitions::test_delete_active_agent_with_sessions_fails PASSED [ 18%]
-app/tests/test_api.py::TestAgentSearch::test_search_by_name PASSED       [ 20%]
-app/tests/test_api.py::TestAgentSearch::test_filter_by_status PASSED     [ 21%]
-app/tests/test_api.py::TestRoleFiles::test_get_role_files PASSED         [ 23%]
-app/tests/test_api.py::TestRoleFiles::test_update_role_file PASSED       [ 25%]
-app/tests/test_api.py::TestRoleFiles::test_role_file_versions PASSED     [ 26%]
-app/tests/test_api.py::TestRoleFiles::test_restore_role_file_version PASSED [ 28%]
-app/tests/test_api.py::TestModelProvider::test_create_provider PASSED    [ 29%]
-app/tests/test_api.py::TestModelProvider::test_list_providers PASSED     [ 31%]
-app/tests/test_api.py::TestModelProvider::test_test_provider PASSED      [ 32%]
-app/tests/test_api.py::TestModelProvider::test_bind_agent_model_with_inference_params PASSED [ 34%]
-app/tests/test_api.py::TestSkill::test_install_and_bind PASSED           [ 35%]
-app/tests/test_api.py::TestSkill::test_unbind_skill PASSED               [ 37%]
-app/tests/test_api.py::TestKnowledgeBase::test_create_kb PASSED          [ 39%]
-app/tests/test_api.py::TestKnowledgeBase::test_list_kbs PASSED           [ 40%]
-app/tests/test_api.py::TestKnowledgeBase::test_upload_document PASSED    [ 42%]
-app/tests/test_api.py::TestKnowledgeBase::test_list_documents PASSED     [ 43%]
-app/tests/test_api.py::TestKnowledgeBase::test_bind_kb_to_agent PASSED   [ 45%]
-app/tests/test_api.py::TestKnowledgeBase::test_unbind_kb_from_agent PASSED [ 46%]
-app/tests/test_api.py::TestMemory::test_get_default_memory_config PASSED [ 48%]
-app/tests/test_api.py::TestMemory::test_update_memory_config PASSED      [ 50%]
-app/tests/test_api.py::TestMemory::test_list_and_delete_memories PASSED  [ 51%]
-app/tests/test_api.py::TestMemory::test_batch_delete_memories PASSED     [ 53%]
-app/tests/test_api.py::TestFeishuBot::test_create_bot PASSED             [ 54%]
-app/tests/test_api.py::TestFeishuBot::test_list_bots_and_credential_masking PASSED [ 56%]
-app/tests/test_api.py::TestFeishuBot::test_bind_bot_to_agent PASSED      [ 57%]
-app/tests/test_api.py::TestFeishuBot::test_get_bot_status PASSED         [ 59%]
-app/tests/test_api.py::TestSession::test_create_and_message PASSED       [ 60%]
-app/tests/test_api.py::TestSession::test_create_session_inactive_agent_fails PASSED [ 62%]
-app/tests/test_api.py::TestSession::test_list_sessions PASSED            [ 64%]
-app/tests/test_api.py::TestSession::test_get_session_detail PASSED       [ 65%]
-app/tests/test_api.py::TestSession::test_message_history PASSED          [ 67%]
-app/tests/test_api.py::TestSession::test_interrupt_and_resume PASSED     [ 68%]
-app/tests/test_api.py::TestSession::test_close_session PASSED            [ 70%]
-app/tests/test_api.py::TestSession::test_get_traces PASSED               [ 71%]
-app/tests/test_api.py::TestAuditAndMetrics::test_list_audit_logs PASSED  [ 73%]
-app/tests/test_api.py::TestAuditAndMetrics::test_token_usage_metrics PASSED [ 75%]
-app/tests/test_api.py::TestAuditAndMetrics::test_error_metrics PASSED    [ 76%]
-app/tests/test_api.py::TestAuditAndMetrics::test_health_check PASSED     [ 78%]
-app/tests/test_api.py::TestAgentDuplicateWithConfig::test_duplicate_copies_model_binding PASSED [ 79%]
-app/tests/test_api.py::TestAgentDuplicateWithConfig::test_duplicate_copies_role_files PASSED [ 81%]
-app/tests/test_api.py::TestAgentDuplicateWithConfig::test_duplicate_copies_skill_binding PASSED [ 82%]
-app/tests/test_api.py::TestAgentDuplicateWithConfig::test_duplicate_copies_kb_binding PASSED [ 84%]
-app/tests/test_api.py::TestAgentDuplicateWithConfig::test_duplicate_copies_memory_config PASSED [ 85%]
-app/tests/test_api.py::TestIntegrationAgentFullConfiguration::test_full_configuration_flow_activates_agent PASSED [ 87%]
-app/tests/test_api.py::TestIntegrationChatChain::test_chat_chain_create_session_send_and_history PASSED [ 89%]
-app/tests/test_api.py::TestIntegrationChatChain::test_chat_chain_sessions_are_isolated PASSED [ 90%]
-app/tests/test_api.py::TestIntegrationFeishuMapping::test_p2p_and_group_messages_map_to_distinct_sessions PASSED [ 92%]
-app/tests/test_api.py::TestIntegrationFeishuMapping::test_message_accepts_attachments PASSED [ 93%]
-app/tests/test_api.py::TestIntegrationFeishuMapping::test_unbound_bot_does_not_expose_agent PASSED [ 95%]
-app/tests/test_api.py::TestIntegrationSecurityRegression::test_credentials_masked_in_list PASSED [ 96%]
+app/tests/test_api.py::TestAgentCRUD::test_delete_agent PASSED           [ 11%]
+app/tests/test_api.py::TestAgentCRUD::test_duplicate_agent PASSED        [ 13%]
+app/tests/test_api.py::TestAgentStatusTransitions::test_activate_without_model_fails PASSED [ 14%]
+app/tests/test_api.py::TestAgentStatusTransitions::test_draft_to_active_to_inactive_to_active PASSED [ 16%]
+app/tests/test_api.py::TestAgentStatusTransitions::test_delete_active_agent_with_sessions_fails PASSED [ 17%]
+app/tests/test_api.py::TestAgentSearch::test_search_by_name PASSED       [ 19%]
+app/tests/test_api.py::TestAgentSearch::test_filter_by_status PASSED     [ 20%]
+app/tests/test_api.py::TestRoleFiles::test_get_role_files PASSED         [ 22%]
+app/tests/test_api.py::TestRoleFiles::test_update_role_file PASSED       [ 23%]
+app/tests/test_api.py::TestRoleFiles::test_role_file_versions PASSED     [ 25%]
+app/tests/test_api.py::TestRoleFiles::test_restore_role_file_version PASSED [ 26%]
+app/tests/test_api.py::TestModelProvider::test_create_provider PASSED    [ 28%]
+app/tests/test_api.py::TestModelProvider::test_list_providers PASSED     [ 29%]
+app/tests/test_api.py::TestModelProvider::test_test_provider PASSED      [ 31%]
+app/tests/test_api.py::TestModelProvider::test_bind_agent_model_with_inference_params PASSED [ 32%]
+app/tests/test_api.py::TestSkill::test_install_and_bind PASSED           [ 34%]
+app/tests/test_api.py::TestSkill::test_unbind_skill PASSED               [ 35%]
+app/tests/test_api.py::TestKnowledgeBase::test_create_kb PASSED          [ 37%]
+app/tests/test_api.py::TestKnowledgeBase::test_list_kbs PASSED           [ 38%]
+app/tests/test_api.py::TestKnowledgeBase::test_upload_document PASSED    [ 40%]
+app/tests/test_api.py::TestKnowledgeBase::test_list_documents PASSED     [ 41%]
+app/tests/test_api.py::TestKnowledgeBase::test_bind_kb_to_agent PASSED   [ 43%]
+app/tests/test_api.py::TestKnowledgeBase::test_unbind_kb_from_agent PASSED [ 44%]
+app/tests/test_api.py::TestMemory::test_get_default_memory_config PASSED [ 46%]
+app/tests/test_api.py::TestMemory::test_update_memory_config PASSED      [ 47%]
+app/tests/test_api.py::TestMemory::test_list_and_delete_memories PASSED  [ 49%]
+app/tests/test_api.py::TestMemory::test_batch_delete_memories PASSED     [ 50%]
+app/tests/test_api.py::TestFeishuBot::test_create_bot PASSED             [ 52%]
+app/tests/test_api.py::TestFeishuBot::test_list_bots_and_credential_masking PASSED [ 53%]
+app/tests/test_api.py::TestFeishuBot::test_bind_bot_to_agent PASSED      [ 55%]
+app/tests/test_api.py::TestFeishuBot::test_get_bot_status PASSED         [ 56%]
+app/tests/test_api.py::TestSession::test_create_and_message PASSED       [ 58%]
+app/tests/test_api.py::TestSession::test_create_session_inactive_agent_fails PASSED [ 59%]
+app/tests/test_api.py::TestSession::test_list_sessions PASSED            [ 61%]
+app/tests/test_api.py::TestSession::test_get_session_detail PASSED       [ 62%]
+app/tests/test_api.py::TestSession::test_message_history PASSED          [ 64%]
+app/tests/test_api.py::TestSession::test_interrupt_and_resume PASSED     [ 65%]
+app/tests/test_api.py::TestSession::test_close_session PASSED            [ 67%]
+app/tests/test_api.py::TestSession::test_get_traces PASSED               [ 68%]
+app/tests/test_api.py::TestAuditAndMetrics::test_list_audit_logs PASSED  [ 70%]
+app/tests/test_api.py::TestAuditAndMetrics::test_token_usage_metrics PASSED [ 71%]
+app/tests/test_api.py::TestAuditAndMetrics::test_error_metrics PASSED    [ 73%]
+app/tests/test_api.py::TestAuditAndMetrics::test_health_check PASSED     [ 74%]
+app/tests/test_api.py::TestAgentDuplicateWithConfig::test_duplicate_copies_model_binding PASSED [ 76%]
+app/tests/test_api.py::TestAgentDuplicateWithConfig::test_duplicate_copies_role_files PASSED [ 77%]
+app/tests/test_api.py::TestAgentDuplicateWithConfig::test_duplicate_copies_skill_binding PASSED [ 79%]
+app/tests/test_api.py::TestAgentDuplicateWithConfig::test_duplicate_copies_kb_binding PASSED [ 80%]
+app/tests/test_api.py::TestAgentDuplicateWithConfig::test_duplicate_copies_memory_config PASSED [ 82%]
+app/tests/test_api.py::TestIntegrationAgentFullConfiguration::test_full_configuration_flow_activates_agent PASSED [ 83%]
+app/tests/test_api.py::TestIntegrationChatChain::test_chat_chain_create_session_send_and_history PASSED [ 85%]
+app/tests/test_api.py::TestIntegrationChatChain::test_chat_chain_sessions_are_isolated PASSED [ 86%]
+app/tests/test_api.py::TestIntegrationFeishuMapping::test_p2p_and_group_messages_map_to_distinct_sessions PASSED [ 88%]
+app/tests/test_api.py::TestIntegrationFeishuMapping::test_message_accepts_attachments PASSED [ 89%]
+app/tests/test_api.py::TestIntegrationFeishuMapping::test_unbound_bot_does_not_expose_agent PASSED [ 91%]
+app/tests/test_api.py::TestAgentRuntimeIntegration::test_runtime_adapter_builds_from_role_files_and_model PASSED [ 92%]
+app/tests/test_api.py::TestAgentRuntimeIntegration::test_runtime_missing_model_binding_raises PASSED [ 94%]
+app/tests/test_api.py::TestAgentRuntimeIntegration::test_send_message_surfaces_runtime_error_not_mock PASSED [ 95%]
+app/tests/test_api.py::TestIntegrationSecurityRegression::test_credentials_masked_in_list PASSED [ 97%]
 app/tests/test_api.py::TestIntegrationSecurityRegression::test_protected_endpoints_require_token PASSED [ 98%]
 app/tests/test_api.py::TestIntegrationSecurityRegression::test_health_check_is_public PASSED [100%]
-
-==================================== PASSES ====================================
-============================= slowest 10 durations =============================
-0.32s setup    app/tests/test_api.py::TestAuth::test_login_success
-0.28s call     app/tests/test_api.py::TestIntegrationFeishuMapping::test_p2p_and_group_messages_map_to_distinct_sessions
-0.25s call     app/tests/test_api.py::TestSession::test_message_history
+=============================== warnings summary ===============================
+../../../../../../../../tmp/agentvenv/lib/python3.12/site-packages/fastapi/testclient.py:1
+    from starlette.testclient import TestClient as TestClient  # noqa
+app/core/config.py:6
+    class Settings(BaseSettings):
+app/schemas/auth.py:15
+    class UserInfo(BaseModel):
+app/schemas/agent.py:22
+    class AgentResponse(BaseModel):
+app/schemas/agent.py:40
+    class RoleFileResponse(BaseModel):
+app/schemas/agent.py:51
+    class RoleFileVersionResponse(BaseModel):
+app/schemas/model_provider.py:21
+    class ModelProviderResponse(BaseModel):
+app/schemas/model_provider.py:43
+    class AgentModelBindingResponse(BaseModel):
+app/schemas/skill.py:13
+    class SkillResponse(BaseModel):
+app/schemas/skill.py:29
+    class AgentSkillBindingResponse(BaseModel):
+app/schemas/knowledge_base.py:11
+    class KBResponse(BaseModel):
+app/schemas/knowledge_base.py:22
+    class DocumentResponse(BaseModel):
+app/schemas/knowledge_base.py:41
+    class AgentKBBindingResponse(BaseModel):
+app/schemas/memory.py:13
+    class MemoryConfigResponse(BaseModel):
+app/schemas/memory.py:30
+    class MemoryEntryResponse(BaseModel):
+app/schemas/feishu.py:20
+    class FeishuBotResponse(BaseModel):
+app/schemas/session.py:13
+    class SessionResponse(BaseModel):
+app/schemas/session.py:34
+    class MessageResponse(BaseModel):
+app/schemas/audit.py:6
+    class AuditLogResponse(BaseModel):
+app/main.py:24
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============================= slowest 5 durations ==============================
+0.30s setup    app/tests/test_api.py::TestAuth::test_login_success
 0.25s call     app/tests/test_api.py::TestAuth::test_login_success
-0.24s setup    app/tests/test_api.py::TestAgentCRUD::test_create_agent
 0.24s call     app/tests/test_api.py::TestAuth::test_login_wrong_password
-0.16s call     app/tests/test_api.py::TestIntegrationChatChain::test_chat_chain_create_session_send_and_history
-0.15s call     app/tests/test_api.py::TestSession::test_get_traces
-0.15s call     app/tests/test_api.py::TestIntegrationChatChain::test_chat_chain_sessions_are_isolated
-0.15s call     app/tests/test_api.py::TestSession::test_interrupt_and_resume
-=========================== short test summary info ============================
-PASSED app/tests/test_api.py::TestAuth::test_login_success
-PASSED app/tests/test_api.py::TestAuth::test_login_wrong_password
-PASSED app/tests/test_api.py::TestAuth::test_unauthorized_access
-PASSED app/tests/test_api.py::TestAgentCRUD::test_create_agent
-PASSED app/tests/test_api.py::TestAgentCRUD::test_list_agents
-PASSED app/tests/test_api.py::TestAgentCRUD::test_get_agent
-PASSED app/tests/test_api.py::TestAgentCRUD::test_update_agent
-PASSED app/tests/test_api.py::TestAgentCRUD::test_delete_agent
-PASSED app/tests/test_api.py::TestAgentCRUD::test_duplicate_agent
-PASSED app/tests/test_api.py::TestAgentStatusTransitions::test_activate_without_model_fails
-PASSED app/tests/test_api.py::TestAgentStatusTransitions::test_draft_to_active_to_inactive_to_active
-PASSED app/tests/test_api.py::TestAgentStatusTransitions::test_delete_active_agent_with_sessions_fails
-PASSED app/tests/test_api.py::TestAgentSearch::test_search_by_name
-PASSED app/tests/test_api.py::TestAgentSearch::test_filter_by_status
-PASSED app/tests/test_api.py::TestRoleFiles::test_get_role_files
-PASSED app/tests/test_api.py::TestRoleFiles::test_update_role_file
-PASSED app/tests/test_api.py::TestRoleFiles::test_role_file_versions
-PASSED app/tests/test_api.py::TestRoleFiles::test_restore_role_file_version
-PASSED app/tests/test_api.py::TestModelProvider::test_create_provider
-PASSED app/tests/test_api.py::TestModelProvider::test_list_providers
-PASSED app/tests/test_api.py::TestModelProvider::test_test_provider
-PASSED app/tests/test_api.py::TestModelProvider::test_bind_agent_model_with_inference_params
-PASSED app/tests/test_api.py::TestSkill::test_install_and_bind
-PASSED app/tests/test_api.py::TestSkill::test_unbind_skill
-PASSED app/tests/test_api.py::TestKnowledgeBase::test_create_kb
-PASSED app/tests/test_api.py::TestKnowledgeBase::test_list_kbs
-PASSED app/tests/test_api.py::TestKnowledgeBase::test_upload_document
-PASSED app/tests/test_api.py::TestKnowledgeBase::test_list_documents
-PASSED app/tests/test_api.py::TestKnowledgeBase::test_bind_kb_to_agent
-PASSED app/tests/test_api.py::TestKnowledgeBase::test_unbind_kb_from_agent
-PASSED app/tests/test_api.py::TestMemory::test_get_default_memory_config
-PASSED app/tests/test_api.py::TestMemory::test_update_memory_config
-PASSED app/tests/test_api.py::TestMemory::test_list_and_delete_memories
-PASSED app/tests/test_api.py::TestMemory::test_batch_delete_memories
-PASSED app/tests/test_api.py::TestFeishuBot::test_create_bot
-PASSED app/tests/test_api.py::TestFeishuBot::test_list_bots_and_credential_masking
-PASSED app/tests/test_api.py::TestFeishuBot::test_bind_bot_to_agent
-PASSED app/tests/test_api.py::TestFeishuBot::test_get_bot_status
-PASSED app/tests/test_api.py::TestSession::test_create_and_message
-PASSED app/tests/test_api.py::TestSession::test_create_session_inactive_agent_fails
-PASSED app/tests/test_api.py::TestSession::test_list_sessions
-PASSED app/tests/test_api.py::TestSession::test_get_session_detail
-PASSED app/tests/test_api.py::TestSession::test_message_history
-PASSED app/tests/test_api.py::TestSession::test_interrupt_and_resume
-PASSED app/tests/test_api.py::TestSession::test_close_session
-PASSED app/tests/test_api.py::TestSession::test_get_traces
-PASSED app/tests/test_api.py::TestAuditAndMetrics::test_list_audit_logs
-PASSED app/tests/test_api.py::TestAuditAndMetrics::test_token_usage_metrics
-PASSED app/tests/test_api.py::TestAuditAndMetrics::test_error_metrics
-PASSED app/tests/test_api.py::TestAuditAndMetrics::test_health_check
-PASSED app/tests/test_api.py::TestAgentDuplicateWithConfig::test_duplicate_copies_model_binding
-PASSED app/tests/test_api.py::TestAgentDuplicateWithConfig::test_duplicate_copies_role_files
-PASSED app/tests/test_api.py::TestAgentDuplicateWithConfig::test_duplicate_copies_skill_binding
-PASSED app/tests/test_api.py::TestAgentDuplicateWithConfig::test_duplicate_copies_kb_binding
-PASSED app/tests/test_api.py::TestAgentDuplicateWithConfig::test_duplicate_copies_memory_config
-PASSED app/tests/test_api.py::TestIntegrationAgentFullConfiguration::test_full_configuration_flow_activates_agent
-PASSED app/tests/test_api.py::TestIntegrationChatChain::test_chat_chain_create_session_send_and_history
-PASSED app/tests/test_api.py::TestIntegrationChatChain::test_chat_chain_sessions_are_isolated
-PASSED app/tests/test_api.py::TestIntegrationFeishuMapping::test_p2p_and_group_messages_map_to_distinct_sessions
-PASSED app/tests/test_api.py::TestIntegrationFeishuMapping::test_message_accepts_attachments
-PASSED app/tests/test_api.py::TestIntegrationFeishuMapping::test_unbound_bot_does_not_expose_agent
-PASSED app/tests/test_api.py::TestIntegrationSecurityRegression::test_credentials_masked_in_list
-PASSED app/tests/test_api.py::TestIntegrationSecurityRegression::test_protected_endpoints_require_token
-PASSED app/tests/test_api.py::TestIntegrationSecurityRegression::test_health_check_is_public
-============================== 64 passed in 4.25s ==============================
-
+0.24s setup    app/tests/test_api.py::TestAgentCRUD::test_create_agent
+0.10s call     app/tests/test_api.py::TestSession::test_interrupt_and_resume
+======================= 67 passed, 21 warnings in 3.19s ========================

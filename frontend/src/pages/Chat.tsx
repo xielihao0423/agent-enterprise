@@ -44,14 +44,21 @@ export default function Chat() {
     if (!input.trim() || !selectedSession) return
     setSending(true)
     const userMsg = { id: 0, role: 'user', content: input, created_at: new Date().toISOString() }
-    setMessages([...messages, userMsg])
     const msg = input
+    setMessages(prev => [...prev, userMsg])
     setInput('')
     try {
       const res: any = await api.post(`/sessions/${selectedSession}/messages`, { content: msg })
       if (res.code === 0) {
-        setMessages(prev => [...prev, res.data])
+        // Reload persisted history so the assistant turn is authoritative.
+        await fetchMessages()
+      } else {
+        // Keep the error bubble in the local list so the failure is visible.
+        setMessages(prev => [...prev, { id: 0, role: 'error', content: res.message || '消息发送失败', created_at: new Date().toISOString() }])
       }
+    } catch (err: any) {
+      const message = err?.response?.data?.message || err?.message || '网络错误，消息发送失败'
+      setMessages(prev => [...prev, { id: 0, role: 'error', content: message, created_at: new Date().toISOString() }])
     } finally {
       setSending(false)
     }
@@ -104,8 +111,12 @@ export default function Chat() {
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {messages.map((m, i) => (
                 <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[70%] px-4 py-2 rounded-lg ${m.role === 'user' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-800'}`}>
-                    <div className="text-xs opacity-60 mb-1">{m.role === 'user' ? '用户' : 'Agent'}</div>
+                  <div className={`max-w-[70%] px-4 py-2 rounded-lg ${
+                    m.role === 'user' ? 'bg-primary-600 text-white'
+                    : m.role === 'error' ? 'bg-red-50 text-red-700 border border-red-200'
+                    : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    <div className="text-xs opacity-60 mb-1">{m.role === 'user' ? '用户' : m.role === 'error' ? '错误' : 'Agent'}</div>
                     <div className="text-sm whitespace-pre-wrap">{m.content}</div>
                   </div>
                 </div>

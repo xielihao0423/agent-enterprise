@@ -11,3 +11,5 @@ python-multipart>=0.0.9
 httpx>=0.27.0
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
+# Runtime: veadk-python drives real Agent execution (Agent/Runner).
+veadk-python>=1.1.0
