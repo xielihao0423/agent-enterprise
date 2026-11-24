@@ -38,7 +38,7 @@ def create_session(agent_id: int, req: SessionCreate, db: Session = Depends(get_
         return error_response(*ErrorCode.NOT_FOUND, message="Agent 不存在或未启用")
     session = SessionModel(
         agent_id=agent_id, user_id=req.user_id, source=req.source,
-        chat_type=req.chat_type, status="idle"
+        chat_type=req.chat_type, chat_id=req.chat_id, status="idle"
     )
     db.add(session)
     db.commit()

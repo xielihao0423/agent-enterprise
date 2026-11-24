@@ -7,6 +7,7 @@ class SessionCreate(BaseModel):
     user_id: Optional[str] = "web_user"
     source: str = "web"
     chat_type: str = "single"
+    chat_id: Optional[str] = None
 
 
 class SessionResponse(BaseModel):
